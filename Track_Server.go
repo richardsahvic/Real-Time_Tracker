@@ -3,55 +3,52 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"log"
 	"io"
 	"io/ioutil"
-	"time"
+	"log"
+	"net/http"
 
-	"github.com/satori/go.uuid"
-	"github.com/gorilla/mux"
 	"github.com/centrifugal/centrifuge-go"
 	"github.com/centrifugal/centrifugo/libcentrifugo/auth"
+	"github.com/gorilla/mux"
+	"github.com/satori/go.uuid"
 )
 
-
 type RegResponse struct {
-	ClientID 	string		`json:"id"`
-	SecretKey 	string		`json:"secret"`
+	ClientID  string `json:"id"`
+	SecretKey string `json:"secret"`
 }
 
 type LocRequest struct {
-	XCoordinate		float64		`json:"reqx"`
-	YCoordinate		float64		`json:"reqy"`
-	ClientID		string		`json:"reqid"`
+	XCoordinate float64 `json:"reqx"`
+	YCoordinate float64 `json:"reqy"`
+	ClientID    string  `json:"reqid"`
 }
 
 type LocResponse struct {
-	Message		string		`json:"message"`
+	Message string `json:"message"`
 }
 
 type ClientLocation struct {
-	XCoordinate		float64		`json:"pubx"`
-	YCoordinate		float64		`json:"puby"`
-	ClientID  		string		`json:"pubid"`
+	XCoordinate float64 `json:"pubx"`
+	YCoordinate float64 `json:"puby"`
+	ClientID    string  `json:"pubid"`
 }
 
 //=============================
-	//CHANNEL
-var forLocReq = make(chan LocRequest)
+//CHANNEL
 var forPublish = make(chan ClientLocation)
-
+var secrKey = "555333ee-7f13-4aa4-b9e8-c3c1c64a48b9"
 
 func main() {
 
-//=============================
+	//=============================
 	// CENTRIFUGO
-	secret := "555333ee-7f13-4aa4-b9e8-c3c1c64a48b9"
+	secret := secrKey
 	user := "001"
 	timestamp := centrifuge.Timestamp()
 	info := ""
-	
+
 	token := auth.GenerateClientToken(secret, user, timestamp, info)
 
 	creds := &centrifuge.Credentials{
@@ -82,7 +79,7 @@ func main() {
 	}
 
 	events := &centrifuge.SubEventHandler{
-		OnJoin: onJoin,
+		OnJoin:  onJoin,
 		OnLeave: onLeave,
 	}
 
@@ -91,41 +88,38 @@ func main() {
 		log.Fatalln(err)
 	}
 
-//=============================
+	//=============================
 	//NET/HTTP
 	route := mux.NewRouter()
 	route.HandleFunc("/getRegister", Register).
-	Methods("GET")
+		Methods("GET")
 	route.HandleFunc("/postLocation", Locate).
-	Methods("POST")
+		Methods("POST")
 
 	go handleCoordinate(sub)
 
 	log.Println("SERVER STARTED")
-    http.ListenAndServe(":8080", route)
+	http.ListenAndServe(":8080", route)
 }
 
-
 //=============================
-	//GET
-func Register(w http.ResponseWriter, r *http.Request){
+//GET
+func Register(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	ID := uuid.Must(uuid.NewV4())
 
-	regResp := RegResponse {
-		ClientID: 	ID.String(),
-		SecretKey:	"555333ee-7f13-4aa4-b9e8-c3c1c64a48b9",
+	regResp := RegResponse{
+		ClientID:  ID.String(),
+		SecretKey: secrKey,
 	}
 
 	json.NewEncoder(w).Encode(regResp)
-	log.Println("GET SUCCESS")
 }
 
-
 //=============================
-	//POST
-func Locate(w http.ResponseWriter, r *http.Request){
+//POST
+func Locate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
@@ -133,37 +127,27 @@ func Locate(w http.ResponseWriter, r *http.Request){
 
 	var temp1 LocRequest
 	json.Unmarshal(body, &temp1)
-	
+
 	var temp2 ClientLocation
-	json.Unmarshal(body, & temp2)
+	json.Unmarshal(body, &temp2)
 	forPublish <- temp2
 
-
-	Reply := LocResponse {
-			Message: "Coordinate recieved.",
-		}
+	Reply := LocResponse{
+		Message: "Coordinate recieved.",
+	}
 	json.NewEncoder(w).Encode(Reply)
-	log.Println("POST SUCCESS")
 }
 
-
 //=============================
-	//GOROUTINE
-func handleCoordinate(subscribedClient centrifuge.Sub){
-	for{
-		data := <- forPublish
+//GOROUTINE
+func handleCoordinate(subscribedClient centrifuge.Sub) {
+	for {
+		data := <-forPublish
 		Coor, _ := json.Marshal(data)
 		err := subscribedClient.Publish(Coor)
 		if err != nil {
 			log.Fatalln(err)
 		}
-		i := 0
-		for i != 3 {
-			log.Println(" . ")
-			time.Sleep(1 * time.Second)
-			i++
-		}
-		log.Println("LOCATION UPDATED!")
 	}
-	
-}	
+
+}
