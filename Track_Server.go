@@ -65,6 +65,9 @@ func main() {
 		Token:     token,
 	}
 
+
+	//Command to launch centrifugo
+	//centrifugo --config=config.json --port=8001
 	wsURL := "ws://localhost:8001/connection/websocket"
 	conf := centrifuge.DefaultConfig
 	c := centrifuge.NewCentrifuge(wsURL, creds, nil, conf)
