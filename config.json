@@ -1,0 +1,15 @@
+{
+  "secret": "555333ee-7f13-4aa4-b9e8-c3c1c64a48b9",
+  "namespaces": [
+  {
+   "name": "public",
+   "publish": true,
+   "watch": true,
+   "presence": true,
+   "join_leave": true,
+   "history_size": 10,
+   "history_lifetime": 30
+  }
+ ],
+ "log_level": "debug"
+}
