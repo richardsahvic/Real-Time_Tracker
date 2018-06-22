@@ -15,13 +15,16 @@ import (
 )
 
 type RegResponse struct {
-	ClientID  string `json:"id"`
-	SecretKey string `json:"secret"`
+	ClientID  	string `json:"id"`
+	User 		string `json:"user"`
+	Timestamp 	string `json:"timestamp"`
+	Info 		string `json:"info"`
+	Token 		string `json:"token"`
 }
 
 type LocRequest struct {
-	XCoordinate float64 `json:"reqx"`
-	YCoordinate float64 `json:"reqy"`
+	LatCoordinate float64 `json:"reqlat"`
+	LngCoordinate float64 `json:"reqlng"`
 	ClientID    string  `json:"reqid"`
 }
 
@@ -30,8 +33,8 @@ type LocResponse struct {
 }
 
 type ClientLocation struct {
-	XCoordinate float64 `json:"pubx"`
-	YCoordinate float64 `json:"puby"`
+	LatCoordinate float64 `json:"publat"`
+	LngCoordinate float64 `json:"publng"`
 	ClientID    string  `json:"pubid"`
 }
 
@@ -39,17 +42,21 @@ type ClientLocation struct {
 //CHANNEL
 var forPublish = make(chan ClientLocation)
 var secrKey = "555333ee-7f13-4aa4-b9e8-c3c1c64a48b9"
+var info = ""
+var token = ""
+var user = ""
+var timestamp = ""
 
 func main() {
 
 	//=============================
 	// CENTRIFUGO
 	secret := secrKey
-	user := "001"
-	timestamp := centrifuge.Timestamp()
-	info := ""
+	user = "001"
+	timestamp = centrifuge.Timestamp()
+	info = ""
 
-	token := auth.GenerateClientToken(secret, user, timestamp, info)
+	token = auth.GenerateClientToken(secret, user, timestamp, info)
 
 	creds := &centrifuge.Credentials{
 		User:      user,
@@ -106,14 +113,17 @@ func main() {
 //GET
 func Register(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
 	ID := uuid.Must(uuid.NewV4())
 
 	regResp := RegResponse{
 		ClientID:  ID.String(),
-		SecretKey: secrKey,
+		Timestamp: timestamp,
+		User: user,
+		Info: info,
+		Token: token,
 	}
-
 	json.NewEncoder(w).Encode(regResp)
 }
 
@@ -121,6 +131,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 //POST
 func Locate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
 
 	body, _ := ioutil.ReadAll(io.LimitReader(r.Body, 5000))
@@ -128,8 +139,11 @@ func Locate(w http.ResponseWriter, r *http.Request) {
 	var temp1 LocRequest
 	json.Unmarshal(body, &temp1)
 
-	var temp2 ClientLocation
-	json.Unmarshal(body, &temp2)
+	temp2 := ClientLocation{
+		LatCoordinate: 	temp1.LatCoordinate,
+		LngCoordinate: 	temp1.LngCoordinate,
+		ClientID:		temp1.ClientID,
+	}
 	forPublish <- temp2
 
 	Reply := LocResponse{
